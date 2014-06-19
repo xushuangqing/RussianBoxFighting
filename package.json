@@ -1,0 +1,9 @@
+{
+  "name": "RussianBox",
+  "version": "0.0.1",
+  "description": "RussianBox using node.js",
+  "dependencies": {
+    "express": "^4.4.3",
+    "socket.io": "^1.0.0"
+  }
+}
