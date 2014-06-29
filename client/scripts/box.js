@@ -17,7 +17,7 @@ var shapes = [
     [[-2, 0], [-1, 0], [0, 0], [1, 0]],
 ]
 
-var mapSize = [10, 20];
+var mapSize = [10, 10];
 
 var RussianBox = {
     createNew: function(typeId){
@@ -39,28 +39,10 @@ var RussianBox = {
             box.position[1]++;
         }
         box.goLeft = function(){
-            var canGoLeft = true;
-            for (var i = 0; i < box.shape.length; i++) {
-                if (box.shape[i][0] + box.position[0] <= 0) {
-                    canGoLeft = false;
-                    break;
-                }
-            }
-            if (canGoLeft) {
-                box.position[0]--;
-            }
+            box.position[0]--;
         }
         box.goRight = function(){
-            var canGoRight = true;
-            for (var i = 0; i < box.shape.length; i++) {
-                if (box.shape[i][0] + box.position[0] >= mapSize[0]-1) {
-                    canGoRight = false;
-                    break;
-                }
-            }
-            if (canGoRight) {
-                box.position[0]++;
-            }
+            box.position[0]++;
         }
         return box;
     }
@@ -87,6 +69,26 @@ var Logic = {
             }
         };
     },
+    checkIfCanGoLeft: function(box){
+        for (var i = 0; i < box.shape.length; i++) {
+            var x = box.shape[i][0]+box.position[0]-1;
+            var y = box.shape[i][1]+box.position[1];
+            if (x<0 || this.map[y][x]===1) {
+                return false;
+            }
+        }
+        return true;
+    },
+    checkIfCanGoRight: function(box){
+        for (var i = 0; i < box.shape.length; i++) {
+            var x = box.shape[i][0]+box.position[0]+1;
+            var y = box.shape[i][1]+box.position[1];
+            if (x>=mapSize[0] || this.map[y][x]===1) {
+                return false;
+            }
+        }
+        return true;
+    },
     checkIfDownToFloor: function(box){
         for (var i = 0; i < box.shape.length; i++) {
             var x = box.shape[i][0]+box.position[0];
@@ -109,21 +111,28 @@ var Logic = {
     UpdatePosition: function(box){
         switch(this.currentPressedKey) {
             case 37://left
-                box.goLeft();
+                if (this.checkIfCanGoLeft(box)) {
+                    box.goLeft();
+                }
                 break;
             case 38://up
                 box.rotate();
                 break;
             case 39://right
-                box.goRight();
+                if (this.checkIfCanGoRight(box)) {
+                    box.goRight();
+                }
                 break;
             case 40://down
-                box.goDown();
+                console.log(this.checkIfDownToFloor(box));
+                if (!this.checkIfDownToFloor(box)) {
+                    box.goDown();
+                }
                 break;
         }
         this.currentPressedKey = 0;
     },
-    checkIfCanDelete: function(){
+    checkIfCanDelete: function(socket){
         var moveTo = new Array(mapSize[1]);
         var deletedNum = 0;
         for (var i = mapSize[1]-1; i >= 0; i--) {
@@ -149,10 +158,9 @@ var Logic = {
                 }
             }
         }
-        
-    },
-    render: function(){
-
+        if (deletedNum > 0) {
+            socket.emit('delete', deletedNum);
+        }
     }
 }
 
@@ -194,7 +202,10 @@ var Renderer = {
 
 var Game = {
     box: {},
+    socket: {},
+    ifDownToFloor: false,
     init: function() {
+        this.socket = io();
         this.box = RussianBox.createNew(Math.floor((Math.random()*5)));
         Logic.initMap();
         Logic.initListener();
@@ -203,17 +214,21 @@ var Game = {
     update: function() {
         Logic.UpdatePosition(this.box);
         if (Logic.checkIfDownToFloor(this.box)) {
-            Logic.updateMap(this.box);
-            Logic.checkIfCanDelete();
-            Game.box = RussianBox.createNew(Math.floor((Math.random()*5)));
+            this.ifDownToFloor = true
         }
     },
     drop: function() {
-        this.box.goDown();
-        if (Logic.checkIfDownToFloor(this.box)) {
+        if (this.ifDownToFloor) {
             Logic.updateMap(this.box);
-            Logic.checkIfCanDelete();
+            Logic.checkIfCanDelete(this.socket);
             Game.box = RussianBox.createNew(Math.floor((Math.random()*5)));
+            this.ifDownToFloor = false;
+        }
+        if (Logic.checkIfDownToFloor(this.box)) {
+            this.ifDownToFloor = true;
+        }
+        else {
+            this.box.goDown();
         }
     },
     render: function() {

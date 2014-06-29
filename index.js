@@ -23,7 +23,12 @@ io.on('connection', function(socket){
     socket.on('disconnect', function(){
         console.log("disconnect");
     });
+    socket.on('delete', function(msg){
+        console.log(msg);
+    });
 })
+
+
 
 http.listen(3000, function(){
 });
